@@ -3,15 +3,6 @@
 // epoll -  I/O event notification facility.
 // Allows monitoring multiple file descriptors to see if any of them are ready for I/O operations
 
-#define MAX_ID 20
-#define MAX_SECRET 128
-#define MAX_CONTENT 1400
-#define MAX_DNAME 20
-#define MAX_USERNAME 20
-// Default Ethernet MTU(Maximum Transmission Unit) == 1500 bytes
-#define MAX_CHAR 1500
-#define MAX_EVENTS 1
-
 bool AUTHENTIFIED = false;
 char DISPLAY_NAME[MAX_DNAME];
 char CURRENT_STATE[MAX_DNAME];
@@ -115,12 +106,6 @@ bool is_valid_parameter(const char *str, bool allow_spaces)
         str++;
     }
     return true;
-}
-
-void print_help()
-{
-    printf("Command \t Parameters \t\t\t Description\n");
-    // TO DO
 }
 
 void print_error(char *message)
@@ -274,7 +259,7 @@ void hadle_server_response_tcp(char *response)
 
         if (!(strcasecmp(status, "OK") == 0 && strcasecmp(status, "NOK") == 0))
         {
-            print_error("Invalid/Unknown status in REPLY message"); 
+            print_error("Invalid/Unknown status in REPLY message");
         }
         strtok(NULL, " "); // IS
         char *message_content = strtok(NULL, "\r\n");
@@ -360,13 +345,21 @@ void hadle_server_response_tcp(char *response)
         exit(EXIT_SUCCESS);
     }
     default:
-        print_error("Unknown message from server"); 
+        print_error("Unknown message from server");
     }
+}
+
+void handle_signal() 
+{
+    clean(socket_desc_tcp, epollfd_tcp);
+    exit(EXIT_SUCCESS);
 }
 
 // IP adress + port number
 int tcp_connect(char *server_ip, int port)
 {
+    signal(SIGINT, handle_signal); // ctrl+c
+
     struct sockaddr_in server;             // Stores the server's address information
     struct epoll_event events[MAX_EVENTS]; // Enent data
     char display_name[MAX_DNAME];          // Display name of the user

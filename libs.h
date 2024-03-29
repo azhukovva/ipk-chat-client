@@ -17,4 +17,21 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#define MAX_ID 20
+#define MAX_SECRET 128
+#define MAX_CONTENT 1400
+#define MAX_DNAME 20
+#define MAX_USERNAME 20
+// Default Ethernet MTU(Maximum Transmission Unit) == 1500 bytes
+#define MAX_CHAR 1500
+#define MAX_EVENTS 1
+
+void print_help() {
+    printf("Command \t Parameters \t\t\t Description\n");
+    printf("/auth \t\t Username Secret DisplayName \t Authenticates with the server\n");
+    printf("/join \t\t ChannelID \t\t\t Joins a channel\n");
+    printf("/rename \t DisplayName \t\t\t Changes your display name\n");
+    printf("/help \t\t \t\t\t\t Prints this help\n");
+}
+
 #endif
