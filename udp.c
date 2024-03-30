@@ -8,15 +8,13 @@ struct timeval time_value;
 struct sockaddr_in server_addr;
 struct epoll_event events[MAX_EVENTS];
 
-enum message_type_t
+enum response_type_t
 {
     CONFIRM,
     REPLY,
-    AUTH,
-    JOIN,
     MSG,
     ERR,
-    BYE,
+    BYE
 };
 
 // Function to wait for a confirmation message from the server after sending a message
@@ -34,22 +32,22 @@ bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct
         FD_SET(socket_desc_udp, &read_fds);
 
         // Function to monitor the file descriptors for readability within the specified timeout period
-        int action = select(socket_desc_udp + 1, &read_fds, NULL, NULL, &time_value);
+        int action = select(socket_desc_udp + 1, &read_fds, NULL, NULL, &time_value); // 0 if the timeout expires
 
-        if (action > 0 && FD_ISSET(socket_desc_udp, &read_fds))
+        if (action > 0 && FD_ISSET(socket_desc_udp, &read_fds)) // At least one socket is ready for reading
         {
-            // There's incoming data to be read from the socket
             char message[MAX_CHAR];
             struct sockaddr_in server_addr;
             socklen_t server_addr_len = sizeof(server_addr);
 
-            int received_data= recvfrom(socket_desc_udp, message, sizeof(message) - 1, 0, (struct sockaddr*)&server_addr, &server_addr_len);
+            int received_data = recvfrom(socket_desc_udp, message, sizeof(message) - 1, 0, (struct sockaddr *)&server_addr, &server_addr_len);
             if (received_data < 0)
             {
                 fprintf(stderr, "Error: Error while receiving data from the server\n");
                 clean(socket_desc_udp, epollfd_udp);
                 return false;
             }
+
             // Check if the received message is the expected one
             //                                                      MSB                         LSB
             // to uint8 because of the << operation to prevent sign extension issues
@@ -66,7 +64,7 @@ bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct
         }
         else if (action == 0)
         {
-            // Timeout -> resend the message
+            // Timeout expired -> resend the message
             int sendto_check = sendto(socket_desc_udp, message, message_length, 0, server_addr, server_addr_len);
             if (sendto_check < 0)
             {
@@ -77,12 +75,12 @@ bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct
         }
         else
         {
-            fprintf(stderr, "Error: Error while waiting for the server's response\n");  
+            fprintf(stderr, "Error: Error while waiting for the server's response\n");
             clean(socket_desc_udp, epollfd_udp);
             return false;
         }
-
     }
+    return false;
 }
 
 int create_auth_message_udp()
@@ -109,8 +107,26 @@ int create_bye_message_udp()
 {
 }
 
-void handle_input_command_udp()
+void handle_input_command_udp(char *command, int socket_desc_tcp, char *display_name)
 {
+    strncpy(CURRENT_STATE, command, 7);
+    enum command_type_t cmd_type = get_command_type(command);
+
+
+    switch (cmd_type)
+    {
+    case AUTH:
+        if (AUTHENTIFIED)
+        {
+            fprintf(stderr, "ERR: You are already authentified\n");
+            break;
+        }
+
+        // sscanf(command, "/auth %s %s %s %99[^\n]", message.username, message.secret, message.display_name, message.additional_params);
+        
+        // create an auth message
+        break;
+    }
 }
 
 void hadle_server_response_udp()
@@ -254,7 +270,7 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
                 // There is a command in the input
                 if (input[0] == '/') // input is a command
                 {
-                    handle_input_command_udp();
+                    // handle_input_command_udp();
                 }
                 else // input is a message
                 {

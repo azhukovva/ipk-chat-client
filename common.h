@@ -13,6 +13,17 @@ extern bool AUTHENTIFIED;       // TODO
 extern char DISPLAY_NAME[MAX_DNAME];    // TODO
 extern char CURRENT_STATE[MAX_DNAME];   // TODO
 
+enum command_type_t
+{
+    AUTH,
+    JOIN,
+    RENAME,
+    HELP,
+    UNKNOWN
+};
+
+enum command_type_t get_command_type(const char *command);
+
 /**
  * TODO
  */

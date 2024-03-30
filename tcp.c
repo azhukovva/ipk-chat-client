@@ -1,4 +1,5 @@
 #include "tcp.h"
+#include "common.h"
 
 // epoll -  I/O event notification facility.
 // Allows monitoring multiple file descriptors to see if any of them are ready for I/O operations
@@ -9,15 +10,6 @@ int socket_desc_tcp = -1;
 int epollfd_tcp = -1;
 
 struct epoll_event event_tcp;
-
-enum command_type_t
-{
-    AUTH,
-    JOIN,
-    RENAME,
-    HELP,
-    UNKNOWN
-};
 
 enum response_type_t
 {
@@ -65,30 +57,7 @@ char *create_err_message_tcp(char *display_name, char *message_content)
     return message;
 }
 
-enum command_type_t get_command_type(const char *command)
-{
-    if (strncmp(command, "/auth", 5) == 0)
-    {
-        return AUTH;
-    }
-    else if (strncmp(command, "/join", 5) == 0)
-    {
-        return JOIN;
-    }
-    else if (strncmp(command, "/rename", 7) == 0)
-    {
-        return RENAME;
-    }
-    else if (strncmp(command, "/help", 5) == 0)
-    {
-        return HELP;
-    }
-    else
-    {
-        fprintf(stderr, "ERR: Unknown command: %s\n", command);
-        return UNKNOWN;
-    }
-};
+
 
 bool is_valid_parameter(const char *str, bool allow_spaces)
 { // allow_spaces is true -> spaces are allowed in the input string
