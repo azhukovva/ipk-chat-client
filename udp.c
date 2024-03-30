@@ -1,4 +1,5 @@
 #include "udp.h"
+#include "common.h"
 
 int socket_desc_udp = -1;
 int epollfd_udp = -1;
@@ -16,6 +17,7 @@ enum response_type_t
     ERR,
     BYE
 };
+
 
 // Function to wait for a confirmation message from the server after sending a message
 bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct sockaddr *server_addr, socklen_t server_addr_len, uint16_t expected_message_id, int timeout, int retransmissions)
@@ -83,34 +85,118 @@ bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct
     return false;
 }
 
-int create_auth_message_udp()
+
+void uint16_to_char_array(uint16_t value, char *char_array)
 {
+    char_array[0] = value >> 8; // MSB
+    char_array[1] = value;      // LSB
 }
 
-int create_join_message_udp()
+void add(int index, char *message, char *to_add)
 {
+    int length = strlen(to_add);
+    memcpy(message + index, to_add, length);
+    index += length;
+    message[index] = '\0';
 }
 
-int create_confirm_message_udp()
+int create_auth_message_udp(uint16_t message_id, char *message, char *username, char *display_name, char *secret)
 {
+    char message_id_char[2];
+    uint16_to_char_array(message_id, message_id_char);
+
+    int index = 0;
+    message[index++] = AUTH; // Add identifier
+    memcpy(message + index, message_id_char, 2);
+    index += 2;
+  
+    add(index, message, username);
+    add(index, message, DISPLAY_NAME);
+    add(index, message, secret);
+
+    return index;
 }
 
-int create_msg_message_udp()
+int create_join_message_udp(uint16_t message_id, char *message, char *channel_id, char *display_name)
 {
+    char message_id_char[2];
+    uint16_to_char_array(message_id, message_id_char);
+
+    int index = 0;
+    message[index++] = JOIN; // Add identifier
+    memcpy(message + index, message_id_char, 2);
+    index += 2;
+  
+    add(index, message, channel_id);
+    add(index, message, DISPLAY_NAME);
+
+    return index;
 }
 
-int create_err_message_udp()
+int create_confirm_message_udp(uint16_t confirmed_message_id, char *message)
 {
+    char confirmed_message_id_char[2];
+    uint16_to_char_array(confirmed_message_id, confirmed_message_id_char);
+
+    int index = 0;
+    message[index++] = CONFIRM; // Add identifier
+    memcpy(message + index, confirmed_message_id_char, 2);
+    index += 2;
+
+    return index;
 }
 
-int create_bye_message_udp()
+int create_msg_message_udp(uint16_t message_id, char *message, char *display_name, char *message_content)
 {
+    char message_id_char[2];
+    uint16_to_char_array(message_id, message_id_char);
+
+    int index = 0;
+    message[index++] = MSG; // Add identifier
+    memcpy(message + index, message_id_char, 2);
+    index += 2;
+  
+    add(index, message, DISPLAY_NAME);
+    add(index, message, message_content);
+
+    return index;
+}
+
+int create_err_message_udp(uint16_t message_id, char *message, char *display_name, char *message_content)
+{
+    char message_id_char[2];
+    uint16_to_char_array(message_id, message_id_char);
+
+    int index = 0;
+    message[index++] = ERR; // Add identifier
+    memcpy(message + index, message_id_char, 2);
+    index += 2;
+  
+    add(index, message, DISPLAY_NAME);
+    add(index, message, message_content);
+
+    return index;
+}
+
+int create_bye_message_udp(uint16_t message_id, char *message)
+{
+    char message_id_char[2];
+    uint16_to_char_array(message_id, message_id_char);
+
+    int index = 0;
+    message[index++] = BYE; // Add identifier
+    memcpy(message + index, message_id_char, 2);
+    index += 2;
+
+    return index;
 }
 
 void handle_input_command_udp(char *command, int socket_desc_tcp, char *display_name)
 {
     strncpy(CURRENT_STATE, command, 7);
     enum command_type_t cmd_type = get_command_type(command);
+    struct message_info_t message; // empty stucture
+    init_message(&message);
 
 
     switch (cmd_type)
@@ -122,9 +208,16 @@ void handle_input_command_udp(char *command, int socket_desc_tcp, char *display_
             break;
         }
 
-        // sscanf(command, "/auth %s %s %s %99[^\n]", message.username, message.secret, message.display_name, message.additional_params);
-        
+        sscanf(command, "/auth %s %s %s %99[^\n]", message.username, message.secret, message.display_name, message.additional_params);
+        if (strlen(message.username) == 0 || strlen(message.secret) == 0 || strlen(message.display_name) == 0 || strlen(message.additional_params) > 0 ||
+            !is_valid_parameter(message.username, false) || !is_valid_parameter(message.secret, false) || !is_valid_parameter(message.display_name, true))
+        {
+            fprintf(stderr, "ERR: Invalid parameters for /auth\n");
+            return;
+        }
+        strncpy(DISPLAY_NAME, message.display_name, MAX_DNAME);
         // create an auth message
+
         break;
     }
 }

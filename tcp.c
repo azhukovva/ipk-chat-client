@@ -19,14 +19,6 @@ enum response_type_t
     BYE
 };
 
-struct message_info_t
-{
-    char username[MAX_USERNAME];
-    char secret[MAX_SECRET];
-    char display_name[MAX_DNAME];
-    char channel_id[MAX_ID];
-    char additional_params[MAX_CONTENT]; // any characters up to 99 characters that are not a newline character
-};
 
 char *create_auth_message_tcp(char *username, char *display_name, char *secret)
 {
@@ -58,21 +50,6 @@ char *create_err_message_tcp(char *display_name, char *message_content)
 }
 
 
-
-bool is_valid_parameter(const char *str, bool allow_spaces)
-{ // allow_spaces is true -> spaces are allowed in the input string
-    // allow_spaces is true for display_name
-    while (*str)
-    {
-        if (!isalnum((unsigned char)*str) && *str != '-' && (!allow_spaces || !isprint((unsigned char)*str) && *str != ' '))
-        {
-            return false;
-        }
-        str++;
-    }
-    return true;
-}
-
 void print_error(char *message)
 {
     fprintf(stderr, "ERR: %s\n", message);
@@ -84,13 +61,6 @@ void print_error(char *message)
     exit(EXIT_FAILURE);
 }
 
-void init_message(struct message_info_t *message) {
-    memset(message->username, 0, sizeof(message->username));
-    memset(message->secret, 0, sizeof(message->secret));
-    memset(message->display_name, 0, sizeof(message->display_name));
-    memset(message->channel_id, 0, sizeof(message->channel_id));
-    memset(message->additional_params, 0, sizeof(message->additional_params));
-}
 
 void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_name)
 {
