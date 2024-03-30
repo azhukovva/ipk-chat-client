@@ -3,10 +3,6 @@
 // epoll -  I/O event notification facility.
 // Allows monitoring multiple file descriptors to see if any of them are ready for I/O operations
 
-bool AUTHENTIFIED = false;
-char DISPLAY_NAME[MAX_DNAME];
-char CURRENT_STATE[MAX_DNAME];
-
 // uninitialized file descriptors
 // initialisation when create a socket
 int socket_desc_tcp = -1;
@@ -337,7 +333,7 @@ void hadle_server_response_tcp(char *response)
     }
 }
 
-void handle_signal() 
+static void handle_signal() 
 {
     clean(socket_desc_tcp, epollfd_tcp);
     exit(EXIT_SUCCESS);

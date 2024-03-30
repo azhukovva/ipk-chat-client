@@ -1,9 +1,5 @@
 #include "udp.h"
 
-bool AUTHENTIFIED = false;
-char DISPLAY_NAME[MAX_DNAME];
-char CURRENT_STATE[MAX_DNAME];
-
 int socket_desc_udp = -1;
 int epollfd_udp = -1;
 
@@ -36,9 +32,9 @@ int create_bye_message_udp()
 {
 }
 
-void print_error()
-{
-}
+// void print_error()
+// {
+// }
 
 void handle_input_command_udp()
 {
@@ -48,12 +44,12 @@ void hadle_server_response_udp()
 {
 }
 
-void handle_signal()
+static void handle_signal()
 {
     char message[MAX_CHAR]; // Messages that will be sent to the server
     if (CURRENT_STATE == "") // No command has been issued before
     {
-        cleanup(socket_desc_udp, epollfd_udp);
+        clean(socket_desc_udp, epollfd_udp);
         exit(EXIT_SUCCESS);
     }
     // bye message to message

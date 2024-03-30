@@ -1,6 +1,10 @@
 {
     "files.associations": {
-        "*.js": "javascriptreact",
-        "system_error": "c"
+        "udp.h": "c",
+        "tcp.h": "c",
+        "libs.h": "c",
+        "stdio.h": "c",
+        "stdlib.h": "c",
+        "common.h": "c"
     }
 }

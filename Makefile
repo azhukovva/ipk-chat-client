@@ -1,15 +1,3 @@
-# CC=gcc
-# CFLAGS=-I.
-
-# OBJ = main.o tcp.o udp.o
-
-# %.o: %.c $(DEPS)
-# 	$(CC) -c -o $@ $< $(CFLAGS)
-
-# ipk24: $(OBJ)
-# 	$(CC) -o $@ $^ $(CFLAGS)
-
-
 CC=gcc
 CFLAGS=#-Wall -Wextra -Werror -std=c99
 
@@ -18,3 +6,6 @@ run:
 
 clean:
 	rm ipk24 
+
+test:
+	python3 tests/ipk-client-test-server/testo.py ./ipk24 -d
