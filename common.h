@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <string.h>
 
 // TODO
 #define MAX_DNAME 20
