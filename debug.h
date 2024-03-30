@@ -11,7 +11,7 @@
 #define COLOR_RESET "\033[0m"
 
 // Debug
-#define DEBUG 1
+// #define DEBUG
 
 /**
  * TODO

@@ -4,10 +4,6 @@ bool AUTHENTIFIED = false;       // TODO
 char DISPLAY_NAME[MAX_DNAME];    // TODO
 char CURRENT_STATE[MAX_DNAME];   // TODO
 
-void handle_signal() {
-    // Your implementation here
-}
-
 enum command_type_t get_command_type(const char *command)
 {
     if (strncmp(command, "/auth", 5) == 0)

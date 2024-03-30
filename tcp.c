@@ -84,6 +84,14 @@ void print_error(char *message)
     exit(EXIT_FAILURE);
 }
 
+void init_message(struct message_info_t *message) {
+    memset(message->username, 0, sizeof(message->username));
+    memset(message->secret, 0, sizeof(message->secret));
+    memset(message->display_name, 0, sizeof(message->display_name));
+    memset(message->channel_id, 0, sizeof(message->channel_id));
+    memset(message->additional_params, 0, sizeof(message->additional_params));
+}
+
 void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_name)
 {
     // "/auth", "/join", "/rename", "/help" are not expected to be longer than 7 characters
@@ -92,6 +100,9 @@ void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_
     strncpy(CURRENT_STATE, command, 7); // "/auth", "/join", "/rename", "/help" are not expected to be longer than 7 characters
     enum command_type_t cmd_type = get_command_type(command);
     struct message_info_t message; // empty stucture
+    init_message(&message);
+
+    debug("Detected command: %s", command);
 
     switch (cmd_type)
     {
@@ -104,6 +115,8 @@ void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_
         // reads input from the 'command' string
         // returns the number of items successfully matched and assigned
         sscanf(command, "/auth %s %s %s %99[^\n]", message.username, message.secret, message.display_name, message.additional_params);
+
+        debug("Detected arguments: %s, %s, %s, %s", message.username, message.secret, message.display_name, message.additional_params);
 
         if (strlen(message.username) == 0 || strlen(message.secret) == 0 || strlen(message.display_name) == 0 || strlen(message.additional_params) > 0 ||
             !is_valid_parameter(message.username, false) || !is_valid_parameter(message.secret, false) || !is_valid_parameter(message.display_name, true))
@@ -123,7 +136,7 @@ void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_
     case JOIN:
         if (!AUTHENTIFIED)
         {
-            fprintf(stderr, "ERR: You must be authentified first\n");
+            fprintf(stderr, "ERR: You must be authorized first\n");
             return;
         }
 
@@ -207,20 +220,26 @@ void hadle_server_response_tcp(char *response)
     {
     case REPLY:
     {
+        debug("Response type: %s", first_elem);
         // REPLY {"OK"|"NOK"} IS {MessageContent}\r\n
         char *status = strtok(NULL, " ");
+        debug("Status: %s", status);
 
-        if (!(strcasecmp(status, "OK") == 0 && strcasecmp(status, "NOK") == 0))
+        if ((strcasecmp(status, "OK") != 0 && strcasecmp(status, "NOK") != 0))
         {
             print_error("Invalid/Unknown status in REPLY message");
         }
+
+        
         strtok(NULL, " "); // IS
         char *message_content = strtok(NULL, "\r\n");
+        debug("Message content: %s", message_content);
         if (message_content == NULL)
         {
             print_error("Invalid REPLY message");
         }
 
+        // REVIEW
         if ((strncmp(CURRENT_STATE, "/auth", 5) == 0) || (strncmp(CURRENT_STATE, "/join", 5) == 0))
         {
             event_tcp.events = EPOLLIN;
@@ -238,6 +257,7 @@ void hadle_server_response_tcp(char *response)
             fprintf(stderr, "Success: %s\n", message_content);
             if (strncmp(CURRENT_STATE, "/auth", 5) == 0)
             {
+                debug("User was authorized");
                 AUTHENTIFIED = true;
             }
         }
@@ -246,14 +266,15 @@ void hadle_server_response_tcp(char *response)
         {
             fprintf(stderr, "Failure: %s\n", message_content);
         }
-    }
 
+        break;
+    }
     case MSG:
     {
         // MSG FROM {DisplayName} IS {MessageContent}\r\n
         if (!AUTHENTIFIED)
         {
-            print_error("You must be authentified first");
+            print_error("You must be authenticated first");
         }
         strtok(NULL, " "); // FROM
         char *sender = strtok(NULL, " ");
@@ -265,6 +286,7 @@ void hadle_server_response_tcp(char *response)
         }
         // Everything is OK!
         printf("%s: %s\n", sender, message_content);
+        break;
     }
     case ERR:
     {
@@ -285,6 +307,7 @@ void hadle_server_response_tcp(char *response)
 
         clean(socket_desc_tcp, epollfd_tcp);
         exit(EXIT_FAILURE);
+        break;
     }
 
     case BYE:
@@ -296,6 +319,7 @@ void hadle_server_response_tcp(char *response)
         }
         clean(socket_desc_tcp, epollfd_tcp);
         exit(EXIT_SUCCESS);
+        break;
     }
     default:
         print_error("Unknown message from server");
@@ -311,15 +335,17 @@ static void handle_signal()
 // IP adress + port number
 int tcp_connect(char *server_ip, int port)
 {
+    debug("Setting up Ctrl + C signal");
     signal(SIGINT, handle_signal); // ctrl+c
 
     struct sockaddr_in server;             // Stores the server's address information
     struct epoll_event events[MAX_EVENTS]; // Enent data
     char display_name[MAX_DNAME];          // Display name of the user
 
+    debug("Openning TCP socket");
+
     // IPv4, TCP default
     socket_desc_tcp = socket(AF_INET, SOCK_STREAM, 0);
-
     if (socket_desc_tcp == -1)
     {
         clean(socket_desc_tcp, epollfd_tcp);
@@ -332,16 +358,17 @@ int tcp_connect(char *server_ip, int port)
     server.sin_family = AF_INET;
     server.sin_port = htons(port); // Host byte order -> network byte order
 
-    printf("Ya socket %s %d\n", server_ip, port);
-
     // TODO add timeout
 
+    debug("Connecting to server %s:%d", server_ip, port);
     if (connect(socket_desc_tcp, (struct sockaddr *)&server, sizeof(server)) != 0)
     {
         fprintf(stderr, "ERR: Connection error with tcp\n");
         clean(socket_desc_tcp, epollfd_tcp);
         return EXIT_FAILURE;
     }
+
+    debug("Creating epoll file descriptor");
 
     // Create epoll
     epollfd_tcp = epoll_create1(0); // 0 - no flags
@@ -365,6 +392,8 @@ int tcp_connect(char *server_ip, int port)
     // Waiting for events
     for (;;)
     {
+
+        debug("Waiting for events");
         int nfds = epoll_wait(epollfd_tcp, events, MAX_EVENTS, -1); // waits indefinitely
 
         if (nfds == -1)
@@ -374,12 +403,18 @@ int tcp_connect(char *server_ip, int port)
             return EXIT_FAILURE;
         }
 
+        //FIXME remove it
+        if(nfds > 10) return EXIT_FAILURE;
+        
+        debug("%d event(s) occured", nfds);
         // loops over each event that occurred
         for (int i = 0; i < nfds; i++)
         {
             if (events[i].data.fd == socket_desc_tcp)
             {
+                debug("Socket descriptor event");
                 char response[MAX_CHAR];
+                debug("Receiving response");
                 int bytes_received = recv(socket_desc_tcp, response, sizeof(response), 0);
 
                 if (bytes_received <= 0) // if connection is closed
@@ -389,11 +424,13 @@ int tcp_connect(char *server_ip, int port)
                     return EXIT_FAILURE;
                 }
 
+                debug("Received response: %s", response);
                 hadle_server_response_tcp(response); // process the response
             }
 
             else if (events[i].data.fd == STDIN_FILENO) // user input
             {
+                debug("User event (stdin)");
                 char input[MAX_CHAR];
 
                 // READ FROM STDIN
@@ -409,6 +446,8 @@ int tcp_connect(char *server_ip, int port)
                     continue;
                 }
 
+                debug("User input: %s", input);
+
                 // There is a command in the input
                 if (input[0] == '/') // input is a command
                 {
@@ -423,6 +462,7 @@ int tcp_connect(char *server_ip, int port)
                         fprintf(stderr, "ERR: You must be authentified first\n");
                         continue;
                     }
+                    input[strlen(input) - 1] = '\0';
                     if (!is_valid_parameter(input, true))
                     {
                         fprintf(stderr, "ERR: Invalid message content\n");

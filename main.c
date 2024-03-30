@@ -154,6 +154,6 @@ int main(int argc, char *argv[])
 	}
 	else if (args.protocol == TCP)
 	{
-		// tcp_connect(server_ip, args.port);
+		tcp_connect(server_ip, args.port);
 	}
 }
