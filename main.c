@@ -1,18 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/un.h>
-#include <netdb.h>
-#include <getopt.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <ctype.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/epoll.h>
-#include <arpa/inet.h>
-#include <stdarg.h>
+#include "tcp.h"
 
 #define OPT_T "-t"
 #define OPT_S "-s"
@@ -24,15 +10,6 @@
 #define UDP_LITERAL "udp"
 #define TCP_LITERAL "tcp"
 
-// Colors for debugging
-#define COLOR_CYAN "\033[0;36m"
-#define COLOR_RED "\033[0;31m"
-#define COLOR_RESET "\033[0m"
-
-// Debug
-#define DEBUG 1
-
-#include "tcp.h"
 
 void print_help_main()
 {
@@ -70,20 +47,6 @@ struct args_t args = {
 	.timeout = 250, // *1000
 	.retransmissions = 3
 };
-
-
-void debug(const char* message, ...) {
-#ifdef DEBUG
-    va_list args;
-    va_start(args, message);
-    printf(COLOR_CYAN "[DEBUG] " COLOR_RESET);
-    vprintf(message, args);
-    printf("\n");
-    va_end(args);
-#else
-    message = message;
-#endif
-}
 
 int main(int argc, char *argv[])
 { // prog.c -t udp -s google.com -p 3000
@@ -191,6 +154,6 @@ int main(int argc, char *argv[])
 	}
 	else if (args.protocol == TCP)
 	{
-		tcp_connect(server_ip, args.port);
+		// tcp_connect(server_ip, args.port);
 	}
 }
