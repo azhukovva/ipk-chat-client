@@ -12,6 +12,11 @@ struct timeval time_value;
 struct sockaddr_in server_addr;
 struct epoll_event events[MAX_EVENTS];
 
+
+bool is_confirmed(){
+    
+}
+
 int create_auth_message_udp()
 {
 }
@@ -199,7 +204,7 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
                     //     continue;
                     // }
 
-                    
+
                     // create a message
 
                     // send the message
