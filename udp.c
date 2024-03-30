@@ -8,9 +8,81 @@ struct timeval time_value;
 struct sockaddr_in server_addr;
 struct epoll_event events[MAX_EVENTS];
 
+enum message_type_t
+{
+    CONFIRM,
+    REPLY,
+    AUTH,
+    JOIN,
+    MSG,
+    ERR,
+    BYE,
+};
 
-bool is_confirmed(){
-    
+// Function to wait for a confirmation message from the server after sending a message
+bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct sockaddr *server_addr, socklen_t server_addr_len, uint16_t expected_message_id, int timeout, int retransmissions)
+{
+    // REVIEW - нужно ещё раз объявлять таймаут?
+    struct timeval time_value;
+    time_value.tv_sec = 0;
+    time_value.tv_usec = timeout * 1000; // Setting the timeout with microsecond precision
+
+    for (int i; i < retransmissions; i++)
+    {
+        fd_set read_fds;
+        FD_ZERO(&read_fds);
+        FD_SET(socket_desc_udp, &read_fds);
+
+        // Function to monitor the file descriptors for readability within the specified timeout period
+        int action = select(socket_desc_udp + 1, &read_fds, NULL, NULL, &time_value);
+
+        if (action > 0 && FD_ISSET(socket_desc_udp, &read_fds))
+        {
+            // There's incoming data to be read from the socket
+            char message[MAX_CHAR];
+            struct sockaddr_in server_addr;
+            socklen_t server_addr_len = sizeof(server_addr);
+
+            int received_data= recvfrom(socket_desc_udp, message, sizeof(message) - 1, 0, (struct sockaddr*)&server_addr, &server_addr_len);
+            if (received_data < 0)
+            {
+                fprintf(stderr, "Error: Error while receiving data from the server\n");
+                clean(socket_desc_udp, epollfd_udp);
+                return false;
+            }
+            // Check if the received message is the expected one
+            //                                                      MSB                         LSB
+            // to uint8 because of the << operation to prevent sign extension issues
+            if (received_data >= 3 && message[0] == 0x00 && ((uint8_t)message[1] << 8 | (uint8_t)message[2]) == expected_message_id)
+            {
+                return true;
+            }
+            else
+            {
+                fprintf(stderr, "Error: Unexpected message received\n");
+                clean(socket_desc_udp, epollfd_udp);
+                return false;
+            }
+        }
+        else if (action == 0)
+        {
+            // Timeout -> resend the message
+            int sendto_check = sendto(socket_desc_udp, message, message_length, 0, server_addr, server_addr_len);
+            if (sendto_check < 0)
+            {
+                fprintf(stderr, "Error: Error while sending data to the server\n");
+                clean(socket_desc_udp, epollfd_udp);
+                return false;
+            }
+        }
+        else
+        {
+            fprintf(stderr, "Error: Error while waiting for the server's response\n");  
+            clean(socket_desc_udp, epollfd_udp);
+            return false;
+        }
+
+    }
 }
 
 int create_auth_message_udp()
@@ -37,10 +109,6 @@ int create_bye_message_udp()
 {
 }
 
-// void print_error()
-// {
-// }
-
 void handle_input_command_udp()
 {
 }
@@ -51,7 +119,7 @@ void hadle_server_response_udp()
 
 static void handle_signal()
 {
-    char message[MAX_CHAR]; // Messages that will be sent to the server
+    char message[MAX_CHAR];  // Messages that will be sent to the server
     if (CURRENT_STATE == "") // No command has been issued before
     {
         clean(socket_desc_udp, epollfd_udp);
@@ -67,11 +135,7 @@ static void handle_signal()
 int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
 {
     signal(SIGINT, handle_signal); // interrupting signal
-    // Setting the timeout with microsecond precision
-    timeout *= 1000;
-    time_value.tv_sec = 0;
-    time_value.tv_usec = timeout;
-    
+
     // Creating a socket + setting the receive timeout
     socket_desc_udp = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_desc_udp < 0)
@@ -80,6 +144,9 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
         clean(socket_desc_udp, epollfd_udp);
         return EXIT_FAILURE;
     }
+
+    time_value.tv_sec = 0;
+    time_value.tv_usec = timeout;
     int set_timeout = setsockopt(socket_desc_udp, SOL_SOCKET, SO_RCVTIMEO, &time_value, sizeof(time_value));
     if (set_timeout < 0)
     {
@@ -133,7 +200,8 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
     }
 
     // Waiting for events
-    for (;;){
+    for (;;)
+    {
         // Waiting for events
         int nfds = epoll_wait(epollfd_udp, events, MAX_EVENTS, -1); // The number of events
         if (nfds < 0)
@@ -146,15 +214,17 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
         char server_response[MAX_CHAR];
 
         // Handling the events
-        for (int i = 0; i < nfds; ++i){
+        for (int i = 0; i < nfds; ++i)
+        {
             // Checks if the event is for the UDP socket
             // SOCKET
-            if (events[i].data.fd == socket_desc_udp){
+            if (events[i].data.fd == socket_desc_udp)
+            {
                 // There's incoming data to be read from the socket
                 struct sockaddr_in sender_addr;
                 socklen_t sender_addr_len = sizeof(sender_addr);
 
-                //REVIEW - ssize_t?
+                // REVIEW - ssize_t?
                 int recvfrom_check = recvfrom(socket_desc_udp, server_response, MAX_CHAR, 0, (struct sockaddr *)&sender_addr, &sender_addr_len);
                 if (recvfrom_check < 0)
                 {
@@ -166,7 +236,8 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
                 hadle_server_response_udp();
             }
             // STDIN
-            else if (events[i].data.fd == STDIN_FILENO){
+            else if (events[i].data.fd == STDIN_FILENO)
+            {
                 // There's incoming data to be read from the standard input
                 char input[MAX_CHAR];
                 if (fgets(input, MAX_CHAR, stdin) == NULL)
@@ -187,27 +258,24 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
                 }
                 else // input is a message
                 {
-                    //REVIEW - надо?
-                    // if (!AUTHENTIFIED)
-                    // {
-                    //     // should enter the /auth command -> check input again
-                    //     fprintf(stderr, "ERR: You must be authentified first\n");
-                    //     continue;
-                    // }
-                    // if (!is_valid_parameter(input, true))
-                    // {
-                    //     fprintf(stderr, "ERR: Invalid message content\n");
-                    //     continue;
-                    // }
-
+                    // REVIEW - надо?
+                    //  if (!AUTHENTIFIED)
+                    //  {
+                    //      // should enter the /auth command -> check input again
+                    //      fprintf(stderr, "ERR: You must be authentified first\n");
+                    //      continue;
+                    //  }
+                    //  if (!is_valid_parameter(input, true))
+                    //  {
+                    //      fprintf(stderr, "ERR: Invalid message content\n");
+                    //      continue;
+                    //  }
 
                     // create a message
 
                     // send the message
-
                 }
             }
-
         }
     }
 
