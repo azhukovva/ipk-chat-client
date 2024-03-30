@@ -16,6 +16,7 @@
 #include <sys/epoll.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/time.h>
 
 #define MAX_ID 20
 #define MAX_SECRET 128
@@ -32,6 +33,18 @@ void print_help() {
     printf("/join \t\t ChannelID \t\t\t Joins a channel\n");
     printf("/rename \t DisplayName \t\t\t Changes your display name\n");
     printf("/help \t\t \t\t\t\t Prints this help\n");
+}
+
+void clean(int socket_desc, int epollfd)
+{
+    if (socket_desc != -1)
+    {
+        close(socket_desc);
+    }
+    if (epollfd != -1)
+    {
+        close(epollfd);
+    }
 }
 
 #endif

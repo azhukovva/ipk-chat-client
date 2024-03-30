@@ -119,18 +119,6 @@ void print_error(char *message)
     exit(EXIT_FAILURE);
 }
 
-void clean(int socket_desc, int epollfd)
-{
-    if (socket_desc != -1)
-    {
-        close(socket_desc);
-    }
-    if (epollfd != -1)
-    {
-        close(epollfd);
-    }
-}
-
 void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_name)
 {
     // "/auth", "/join", "/rename", "/help" are not expected to be longer than 7 characters

@@ -64,9 +64,10 @@ struct args_t
 	int help;
 };
 
+//REVIEW - 
 struct args_t args = {
 	.port = 4567,
-	.timeout = 250,
+	.timeout = 250, // *1000
 	.retransmissions = 3
 };
 
