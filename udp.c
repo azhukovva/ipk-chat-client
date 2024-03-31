@@ -54,6 +54,13 @@ bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct
             // Check if the received message is the expected one
             //                                                      MSB                         LSB
             // to uint8 because of the << operation to prevent sign extension issues
+            // printf("%ld\n", strlen(message));
+            // for (int i = 0; message[i] != '\0'; i++) {
+            //     // Print the hexadecimal representation of each character
+            //     printf("%02X ", message[i]);
+            // }
+            // printf("\n");
+
             if (received_data >= 3 && message[0] == 0x00 && ((uint8_t)message[1] << 8 | (uint8_t)message[2]) == expected_message_id)
             {
                 return true;
@@ -92,12 +99,12 @@ void uint16_to_char_array(uint16_t value, char *char_array)
     char_array[1] = value;      // LSB
 }
 
-void add(int index, char *message, char *to_add)
+void add(int* index, char *message, char *to_add)
 {
     int length = strlen(to_add);
-    memcpy(message + index, to_add, length);
-    index += length;
-    message[index] = '\0';
+    memcpy(message + (*index), to_add, length);
+    *index += length;
+    message[(*index)++] = '\0';
 }
 
 int create_auth_message_udp(uint16_t message_id, char *message, char *username, char *display_name, char *secret)
@@ -106,13 +113,13 @@ int create_auth_message_udp(uint16_t message_id, char *message, char *username, 
     uint16_to_char_array(message_id, message_id_char);
 
     int index = 0;
-    message[index++] = AUTH; // Add identifier
+    message[index++] = 0x02;// AUTH; // Add identifier
     memcpy(message + index, message_id_char, 2);
     index += 2;
 
-    add(index, message, username);
-    add(index, message, DISPLAY_NAME);
-    add(index, message, secret);
+    add(&index, message, username);
+    add(&index, message, display_name);
+    add(&index, message, secret);
 
     return index;
 }
@@ -128,8 +135,8 @@ int create_join_message_udp(uint16_t message_id, char *message, char *channel_id
     memcpy(message + index, message_id_char, 2);
     index += 2;
 
-    add(index, message, channel_id);
-    add(index, message, DISPLAY_NAME);
+    add(&index, message, channel_id);
+    add(&index, message, DISPLAY_NAME);
 
     return index;
 }
@@ -157,8 +164,8 @@ int create_msg_message_udp(uint16_t message_id, char *message, char *display_nam
     memcpy(message + index, message_id_char, 2);
     index += 2;
 
-    add(index, message, DISPLAY_NAME);
-    add(index, message, message_content);
+    add(&index, message, DISPLAY_NAME);
+    add(&index, message, message_content);
 
     return index;
 }
@@ -173,8 +180,8 @@ int create_err_message_udp(uint16_t message_id, char *message, char *display_nam
     memcpy(message + index, message_id_char, 2);
     index += 2;
 
-    add(index, message, DISPLAY_NAME);
-    add(index, message, message_content);
+    add(&index, message, DISPLAY_NAME);
+    add(&index, message, message_content);
 
     return index;
 }
@@ -199,12 +206,15 @@ void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t messa
     struct message_info_t message; // empty stucture
     init_message(&message);
 
+    debug("Detected command: %s", command);
+
     char data[MAX_CHAR];
 
     switch (cmd_type)
     {
     case AUTH:
     {
+
         if (AUTHENTIFIED)
         {
             fprintf(stderr, "ERR: You are already authentified\n");
@@ -224,10 +234,11 @@ void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t messa
         // create an auth message
         int message_size = create_auth_message_udp(message_id++, data, message.username, message.display_name, message.secret);
         // send the message
-        sendto(socket_desc_udp, command, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        sendto(socket_desc_udp, data, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
         epoll_ctl(epollfd_udp, EPOLL_CTL_DEL, STDIN_FILENO, &event_udp);
         // wait for confirmation of the previously sent message
         // because of index++ in the create_auth_message_udp function
+        // printf("%s\n", data);
         if (!is_confirmed(socket_desc_udp, data, message_size, (struct sockaddr *)&server_addr, sizeof(server_addr), message_id - 1, timeout, retransmissions))
         {
             fprintf(stderr, "ERR: Error while waiting for the server's confirmation\n");
@@ -468,6 +479,7 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
 {
     signal(SIGINT, handle_signal); // interrupting signal
 
+    debug("Openning TCP socket");
     // Creating a socket + setting the receive timeout
     socket_desc_udp = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_desc_udp < 0)
@@ -534,6 +546,7 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
     // Waiting for events
     for (;;)
     {
+        debug("Waiting for events");
         // Waiting for events
         int nfds = epoll_wait(epollfd_udp, events, MAX_EVENTS, -1); // The number of events
         if (nfds < 0)
@@ -545,6 +558,8 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
 
         char server_response[MAX_CHAR];
 
+        debug("%d event(s) occured", nfds);
+
         // Handling the events
         for (int i = 0; i < nfds; ++i)
         {
@@ -552,6 +567,7 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
             // SOCKET
             if (events[i].data.fd == socket_desc_udp)
             {
+                debug("Socket descriptor event");
                 // There's incoming data to be read from the socket
                 struct sockaddr_in sender_addr;
                 socklen_t sender_addr_len = sizeof(sender_addr);
@@ -564,6 +580,16 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
                     clean(socket_desc_udp, epollfd_udp);
                     return EXIT_FAILURE;
                 }
+
+                // debug("Received response: %s", server_response);
+
+                // debug("%d\n", recvfrom_check);
+                // for (int i = 0; i != recvfrom_check; i++) {
+                //     // Print the hexadecimal representation of each character
+                //     debug("%02X ", message[i]);
+                // }
+                // debug("\n");
+
                 // Everything is OK!
                 hadle_server_response_udp(server_response, timeout, retransmissions, message_id);
             }
@@ -571,6 +597,7 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
             // STDIN
             else if (events[i].data.fd == STDIN_FILENO)
             {
+                debug("User event (stdin)");
                 // There's incoming data to be read from the standard input
                 char input[MAX_CHAR];
                 char message_content[MAX_CHAR];
@@ -585,6 +612,8 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
                     // check input again
                     continue;
                 }
+
+                debug("User input: %s", input);
 
                 if (input[0] == '/') // input is a command
                 {
@@ -609,6 +638,7 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
                     // create a message
                     int message_size = create_msg_message_udp(message_id++, input, DISPLAY_NAME, message_content);
 
+                    debug("Created message: %s", message_content);
                     int sendto_check = sendto(socket_desc_udp, message_content, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
                     if (sendto_check < 0)
                     {

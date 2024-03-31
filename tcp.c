@@ -311,7 +311,6 @@ static void handle_signal()
 // IP adress + port number
 int tcp_connect(char *server_ip, int port)
 {
-    debug("Setting up Ctrl + C signal");
     signal(SIGINT, handle_signal); // ctrl+c
 
     struct sockaddr_in server;             // Stores the server's address information
@@ -345,8 +344,6 @@ int tcp_connect(char *server_ip, int port)
         return EXIT_FAILURE;
     }
 
-    debug("Creating epoll file descriptor");
-
     // Create epoll
     epollfd_tcp = epoll_create1(0); // 0 - no flags
     if (epollfd_tcp == -1)          // if fails
@@ -379,9 +376,6 @@ int tcp_connect(char *server_ip, int port)
             fprintf(stderr, "ERR: Error_tcp in epoll_wait\n");
             return EXIT_FAILURE;
         }
-
-        //FIXME remove it
-        if(nfds > 10) return EXIT_FAILURE;
         
         debug("%d event(s) occured", nfds);
         // loops over each event that occurred
@@ -391,7 +385,6 @@ int tcp_connect(char *server_ip, int port)
             {
                 debug("Socket descriptor event");
                 char response[MAX_CHAR];
-                debug("Receiving response");
                 int bytes_received = recv(socket_desc_tcp, response, sizeof(response), 0);
 
                 if (bytes_received <= 0) // if connection is closed
