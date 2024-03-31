@@ -309,6 +309,30 @@ bool is_duplicated_message(char *recent_message_array, int received_message_id, 
     }
 }
 
+void print_error(char *data, char *message, uint16_t message_id, int timeout, int retransmissions)
+{
+    fprintf(stderr, "ERR: %s\n", data);
+    int message_size = create_err_message_udp(message_id++, data, DISPLAY_NAME, message);
+    sendto(socket_desc_udp, message, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    if (!is_confirmed(socket_desc_udp, message, message_size, (struct sockaddr *)&server_addr, sizeof(server_addr), message_id, timeout, retransmissions))
+    {
+        fprintf(stderr, "ERR: Error while waiting for the server's confirmation\n");
+        clean(socket_desc_udp, epollfd_udp);
+        exit(EXIT_FAILURE);
+    }
+
+    int bye_message_size = create_bye_message_udp(message_id++, message);
+    sendto(socket_desc_udp, message, bye_message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    if (!is_confirmed(socket_desc_udp, message, bye_message_size, (struct sockaddr *)&server_addr, sizeof(server_addr), message_id, timeout, retransmissions))
+    {
+        fprintf(stderr, "ERR: Error while waiting for the server's confirmation\n");
+        clean(socket_desc_udp, epollfd_udp);
+        exit(EXIT_FAILURE);
+    }
+    clean(socket_desc_udp, epollfd_udp);
+    exit(EXIT_SUCCESS);
+}
+
 void hadle_server_response_udp(char *response, int timeout, int retransmissions, int message_id)
 {
 
@@ -349,9 +373,10 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
     }
 
     char responses[MAX_CHAR];
+
     // CURRENT
     uint16_t received_message_id = (uint8_t)response[1] << 8 | (uint8_t)response[2];
-    uint16_t recent_message_array[1000] = {0};
+    char recent_message_array[1000] = {0};
     int id = 0;
 
     // IS DUPLICATED
@@ -369,7 +394,7 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
     switch (response_type)
     {
     case REPLY:
-    if ((strncmp(CURRENT_STATE, "/auth", 5) == 0) || (strncmp(CURRENT_STATE, "/join", 5) == 0))
+        if ((strncmp(CURRENT_STATE, "/auth", 5) == 0) || (strncmp(CURRENT_STATE, "/join", 5) == 0))
         {
             event_udp.events = EPOLLIN;
             event_udp.data.fd = STDIN_FILENO;
@@ -381,12 +406,30 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
                 exit(EXIT_FAILURE);
             }
         }
-    uint8_t result = response[3];
-    if (result == 0x00){
-        fprintf(stderr, "ERR: Error while processing the command\n");
+
+        uint8_t result = response[3];
+        if (result == 0)
+        {
+            fprintf(stderr, "ERR: Error while processing the command\n");
+            break;
+        }
+        else if (result == 1)
+        {
+            //REVIEW - response + 5
+            fprintf(stderr, "Success: %s\n", response + 4);
+            if (strncmp(CURRENT_STATE, "/auth", 5) == 0)
+            {
+                debug("User was authorized");
+                AUTHENTIFIED = true;
+            }
+            break;
+        }
+        else 
+        {
+            print_error("Unknown result", response, message_id, timeout, retransmissions);
+        }
         break;
-    }
-        break;
+        
     case MSG:
         break;
     case ERR:

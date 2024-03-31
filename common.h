@@ -51,11 +51,6 @@ void init_message(struct message_info_t *message);
 /**
  * TODO
  */
-void print_help();
-
-/**
- * TODO
- */
 void clean(int socket_desc, int epollfd);
 
 #endif
