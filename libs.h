@@ -17,6 +17,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/time.h>
+#include <netdb.h>
 
 #include "debug.h"
 #include "common.h"

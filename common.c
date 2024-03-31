@@ -27,14 +27,14 @@ enum command_type_t get_command_type(const char *command)
         fprintf(stderr, "ERR: Unknown command: %s\n", command);
         return UNKNOWN;
     }
-};
+}
 
 bool is_valid_parameter(const char *str, bool allow_spaces)
 { // allow_spaces is true -> spaces are allowed in the input string
     // allow_spaces is true for display_name
     while (*str)
     {
-        if (!isalnum((unsigned char)*str) && *str != '-' && (!allow_spaces || !isprint((unsigned char)*str) && *str != ' '))
+        if (!isalnum((unsigned char)*str) && *str != '-' && (!allow_spaces || (!isprint((unsigned char)*str) && *str != ' ')))
         {
             return false;
         }

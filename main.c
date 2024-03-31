@@ -1,4 +1,5 @@
 #include "tcp.h"
+#include "udp.h"
 
 #define OPT_T "-t"
 #define OPT_S "-s"
@@ -149,7 +150,7 @@ int main(int argc, char *argv[])
 
 	if (args.protocol == UDP)
 	{
-		// volani udp
+		udp_connect(server_ip, args.port, args.timeout, args.retransmissions);
 	}
 	else if (args.protocol == TCP)
 	{

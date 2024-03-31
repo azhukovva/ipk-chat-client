@@ -201,7 +201,7 @@ void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t messa
 
     switch (cmd_type)
     {
-    case AUTH:
+    case AUTH: {
         if (AUTHENTIFIED)
         {
             fprintf(stderr, "ERR: You are already authentified\n");
@@ -232,7 +232,8 @@ void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t messa
             exit(EXIT_FAILURE);
         }
         break;
-    case JOIN:
+    }
+    case JOIN: {
         if (!AUTHENTIFIED)
         {
             fprintf(stderr, "ERR: You must be authentified first\n");
@@ -259,6 +260,7 @@ void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t messa
             exit(EXIT_FAILURE);
         }
         break;
+    }
 
     case RENAME:
         if (!AUTHENTIFIED)
@@ -296,7 +298,7 @@ void hadle_server_response_udp()
 static void handle_signal()
 {
     char message[MAX_CHAR];  // Messages that will be sent to the server
-    if (CURRENT_STATE == "") // No command has been issued before
+    if (strlen(CURRENT_STATE) == 0) // No command has been issued before
     {
         clean(socket_desc_udp, epollfd_udp);
         exit(EXIT_SUCCESS);
