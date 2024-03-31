@@ -156,8 +156,6 @@ void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_
 void hadle_server_response_tcp(char *response)
 {
     // String 'response' -> smaller strings (tokens) with delimiter " "
-    char temp[MAX_CHAR];
-    strcpy(temp, response);
 
     char *first_elem = strtok(response, " ");
     enum response_type_t response_type;
