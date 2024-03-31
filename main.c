@@ -50,7 +50,6 @@ struct args_t args = {
 
 int main(int argc, char *argv[])
 { // prog.c -t udp -s google.com -p 3000
-
 	debug("Reading program arguments...");
 	for (int i = 1; i < argc; i++)
 	{

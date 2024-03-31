@@ -54,8 +54,9 @@ void print_error(char *message)
 {
     fprintf(stderr, "ERR: %s\n", message);
     char *error_message = create_err_message_tcp(DISPLAY_NAME, message);
-    send(socket_desc_tcp, error_message, strlen(error_message), 0);
+    debug("Created error message: %s (%ld)", error_message, strlen(error_message));
     char bye_message[] = "BYE\r\n";
+    send(socket_desc_tcp, error_message, strlen(error_message), 0);
     send(socket_desc_tcp, bye_message, strlen(bye_message), 0);
     clean(socket_desc_tcp, epollfd_tcp);
     exit(EXIT_FAILURE);
@@ -136,7 +137,7 @@ void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_
             return;
         }
         // Locally changes the display name of the user to be sent with new messages/selected commands
-        strncpy(DISPLAY_NAME, message.display_name, MAX_DNAME);
+        // strncpy(DISPLAY_NAME, message.display_name, MAX_DNAME);
         break;
 
     case HELP:
@@ -157,6 +158,9 @@ void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_
 void hadle_server_response_tcp(char *response)
 {
     // String 'response' -> smaller strings (tokens) with delimiter " "
+    char temp[MAX_CHAR];
+    strcpy(temp, response);
+
     char *first_elem = strtok(response, " ");
     enum response_type_t response_type;
 
@@ -182,15 +186,16 @@ void hadle_server_response_tcp(char *response)
         }
         else
         {
-            response_type = UNKNOWN;
+            response_type = ERR;
         }
     }
+
+    debug("Response type: %s", first_elem);
 
     switch (response_type)
     {
     case REPLY:
     {
-        debug("Response type: %s", first_elem);
         // REPLY {"OK"|"NOK"} IS {MessageContent}\r\n
         char *status = strtok(NULL, " ");
         debug("Status: %s", status);
@@ -268,8 +273,13 @@ void hadle_server_response_tcp(char *response)
 
         if (message_content == NULL || sender == NULL)
         {
+            debug("Unknown response type detected");
             print_error("Invalid ERR message");
         }
+
+        debug("Error response type detected");
+        debug("Sender: %s", sender);
+        debug("Message content: %s", message_content);
 
         char bye_message[] = "BYE\r\n";
         fprintf(stderr, "ERR FROM %s: %s\n", sender, message_content);
@@ -314,6 +324,7 @@ int tcp_connect(char *server_ip, int port)
 
     debug("Openning TCP socket");
 
+    int flag = 1;
     // IPv4, TCP default
     socket_desc_tcp = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_desc_tcp == -1)
@@ -406,6 +417,8 @@ int tcp_connect(char *server_ip, int port)
                 // READ FROM STDIN
                 if (fgets(input, sizeof(input), stdin) == NULL)
                 {
+                    char bye_message[] = "BYE\r\n";
+                    send(socket_desc_tcp, bye_message, strlen(bye_message), 0);
                     clean(socket_desc_tcp, epollfd_tcp);
                     return EXIT_SUCCESS;
                 }
@@ -440,6 +453,8 @@ int tcp_connect(char *server_ip, int port)
                     }
 
                     char *msg_message = create_msg_message_tcp(DISPLAY_NAME, input);
+                    debug("Created message: %s", msg_message);
+                    // TODO error handler
                     send(socket_desc_tcp, msg_message, strlen(msg_message), 0);
                 }
             }
