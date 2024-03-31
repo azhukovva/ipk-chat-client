@@ -18,7 +18,6 @@ enum response_type_t
     BYE
 };
 
-
 // Function to wait for a confirmation message from the server after sending a message
 bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct sockaddr *server_addr, socklen_t server_addr_len, uint16_t expected_message_id, int timeout, int retransmissions)
 {
@@ -85,7 +84,6 @@ bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct
     return false;
 }
 
-
 void uint16_to_char_array(uint16_t value, char *char_array)
 {
     char_array[0] = value >> 8; // MSB
@@ -109,7 +107,7 @@ int create_auth_message_udp(uint16_t message_id, char *message, char *username, 
     message[index++] = AUTH; // Add identifier
     memcpy(message + index, message_id_char, 2);
     index += 2;
-  
+
     add(index, message, username);
     add(index, message, DISPLAY_NAME);
     add(index, message, secret);
@@ -123,10 +121,11 @@ int create_join_message_udp(uint16_t message_id, char *message, char *channel_id
     uint16_to_char_array(message_id, message_id_char);
 
     int index = 0;
+    // index++ -> where the next data should be written
     message[index++] = JOIN; // Add identifier
     memcpy(message + index, message_id_char, 2);
     index += 2;
-  
+
     add(index, message, channel_id);
     add(index, message, DISPLAY_NAME);
 
@@ -155,7 +154,7 @@ int create_msg_message_udp(uint16_t message_id, char *message, char *display_nam
     message[index++] = MSG; // Add identifier
     memcpy(message + index, message_id_char, 2);
     index += 2;
-  
+
     add(index, message, DISPLAY_NAME);
     add(index, message, message_content);
 
@@ -171,7 +170,7 @@ int create_err_message_udp(uint16_t message_id, char *message, char *display_nam
     message[index++] = ERR; // Add identifier
     memcpy(message + index, message_id_char, 2);
     index += 2;
-  
+
     add(index, message, DISPLAY_NAME);
     add(index, message, message_content);
 
@@ -191,13 +190,14 @@ int create_bye_message_udp(uint16_t message_id, char *message)
     return index;
 }
 
-void handle_input_command_udp(char *command, int socket_desc_tcp, char *display_name)
+void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t message_id, char *display_name, int timeout, int retransmissions)
 {
     strncpy(CURRENT_STATE, command, 7);
     enum command_type_t cmd_type = get_command_type(command);
     struct message_info_t message; // empty stucture
     init_message(&message);
 
+    char data[MAX_CHAR];
 
     switch (cmd_type)
     {
@@ -205,25 +205,92 @@ void handle_input_command_udp(char *command, int socket_desc_tcp, char *display_
         if (AUTHENTIFIED)
         {
             fprintf(stderr, "ERR: You are already authentified\n");
-            break;
+            return;
         }
 
         sscanf(command, "/auth %s %s %s %99[^\n]", message.username, message.secret, message.display_name, message.additional_params);
+
         if (strlen(message.username) == 0 || strlen(message.secret) == 0 || strlen(message.display_name) == 0 || strlen(message.additional_params) > 0 ||
             !is_valid_parameter(message.username, false) || !is_valid_parameter(message.secret, false) || !is_valid_parameter(message.display_name, true))
         {
             fprintf(stderr, "ERR: Invalid parameters for /auth\n");
             return;
         }
+
         strncpy(DISPLAY_NAME, message.display_name, MAX_DNAME);
         // create an auth message
-
+        int messsage_size = create_auth_message_udp(message_id++, data, message.username, message.display_name, message.secret);
+        // send the message
+        sendto(socket_desc_udp, command, messsage_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        epoll_ctl(epollfd_udp, EPOLL_CTL_DEL, STDIN_FILENO, &event_udp);
+        // wait for confirmation of the previously sent message
+        // because of index++ in the create_auth_message_udp function
+        if (!is_confirmed(socket_desc_udp, data, messsage_size, (struct sockaddr *)&server_addr, sizeof(server_addr), message_id - 1, timeout, retransmissions))
+        {
+            fprintf(stderr, "ERR: Error while waiting for the server's confirmation\n");
+            clean(socket_desc_udp, epollfd_udp);
+            exit(EXIT_FAILURE);
+        }
         break;
+    case JOIN:
+        if (!AUTHENTIFIED)
+        {
+            fprintf(stderr, "ERR: You must be authentified first\n");
+            return;
+        }
+        sscanf(command, "/join %s %99[^\n]", message.channel_id, message.additional_params);
+
+        if (strlen(message.channel_id) == 0 || strlen(message.additional_params) > 0 || !is_valid_parameter(message.channel_id, false))
+        {
+            fprintf(stderr, "ERR: Invalid parameters for /join\n");
+            return;
+        }
+        // create a join message
+        // message_id++ ensures that each time a join message is created, it receives a unique ID
+        int messsage_size = create_join_message_udp(message_id++, data, message.channel_id, message.display_name);
+        // send the message
+        sendto(socket_desc_udp, command, messsage_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        epoll_ctl(epollfd_udp, EPOLL_CTL_DEL, STDIN_FILENO, &event_udp);
+        // wait for confirmation
+        if (!is_confirmed(socket_desc_udp, data, messsage_size, (struct sockaddr *)&server_addr, sizeof(server_addr), message_id - 1, timeout, retransmissions))
+        {
+            fprintf(stderr, "ERR: Error while waiting for the server's confirmation\n");
+            clean(socket_desc_udp, epollfd_udp);
+            exit(EXIT_FAILURE);
+        }
+        break;
+
+    case RENAME:
+        if (!AUTHENTIFIED)
+        {
+            fprintf(stderr, "ERR: You must be authentified first\n");
+            return;
+        }
+        sscanf(command, "/rename %s %99[^\n]", DISPLAY_NAME, message.additional_params);
+        if (strlen(DISPLAY_NAME) == 0 || strlen(message.additional_params) > 0 || !is_valid_parameter(DISPLAY_NAME, true))
+        {
+            fprintf(stderr, "ERR: Invalid parameters for /rename\n");
+            return;
+        }
+        break;
+
+    case HELP:
+        sscanf(command, "/help %99[^\n]", message.additional_params);
+        if (strlen(message.additional_params) > 0)
+        {
+            fprintf(stderr, "ERR: Invalid parameters for /help\n");
+            break;
+        }
+        print_help();
+        break;
+    default:
+        fprintf(stderr, "ERR: Unknown command: %s\n", command);
     }
 }
 
 void hadle_server_response_udp()
 {
+    // TODO
 }
 
 static void handle_signal()
@@ -234,8 +301,9 @@ static void handle_signal()
         clean(socket_desc_udp, epollfd_udp);
         exit(EXIT_SUCCESS);
     }
-    // bye message to message
-    // wait for confirmation from the server
+    // TODO
+    //  bye message to message
+    //  wait for confirmation from the server
 
     clean(socket_desc_udp, epollfd_udp);
     exit(EXIT_SUCCESS);

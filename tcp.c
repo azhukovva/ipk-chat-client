@@ -136,8 +136,6 @@ void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_
             fprintf(stderr, "ERR: Invalid parameters for /rename\n");
             return;
         }
-        // Locally changes the display name of the user to be sent with new messages/selected commands
-        // strncpy(DISPLAY_NAME, message.display_name, MAX_DNAME);
         break;
 
     case HELP:
