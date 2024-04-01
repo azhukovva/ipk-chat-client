@@ -1,4 +1,4 @@
-## IPK24-CHAT protocol
+## Client for a chat server using IPK24-CHAT protocol
 ### Introduction
 The program (client) is designed to connect to any TCP and UDP server. It's written in C programming language and uses [socket API](https://www.geeksforgeeks.org/socket-programming-cc/) to create and manage network connections. The program can be compiled on both Linux and Windows platforms.
 
@@ -23,13 +23,15 @@ The project is configured to be able to compile on Linux or Windows.
 
 You can run client using following command:
 ```bash
-./ipkcpc -h <host> -p <port> -m <mode>
+./ipk24 -t <protocol> -s <server> -p <port> -p <port> -d <timeout> -r <retransmissions> -h
 ```
 
-`-h` ip address of the system where server is running<br/>
-`-p` server's port<br/>
-`-m` mode in which server is running (tcp/udp)<br/>
-`--help` prints usage for the user<br/>
+`-t` <br>transport protocol used for connection (tcp or udp)<br/>
+`-s` <br>server IP or hostname<br/>
+`-p` <br>server port<br/>
+`-d` <br>UDP confirmation timeout<br/>
+`-r` <br>maximum number of UDP retransmissions<br/>
+`-h <br>prints program help output and exits prints usage for the user<br/>
 
 > **Note**<br/>
 All the options described above are **required** in order to connect to the server.
@@ -38,9 +40,9 @@ Once the program started, if credentials you provided are valid, you can start t
 
 
 ### Error Handling
-The client program has handlers to validate internal network errors and input data, provided by a user. If error occurs, the program will throw error message to *STDERR*, cleaning data up.  Error message has format `[ERROR]:<err-message>`. 
+The client program has handlers to validate internal network errors and input data, provided by a user. If error occurs, the program will throw error message to *STDERR*, cleaning data up.  Error message has format `[ERR]:<err-message>`. 
 
-The program works like a [telnet](https://cs.wikipedia.org/wiki/Telnet). In udp mode, for the cases when port or ip is unreachable, there is `5s` delay until timeout.
+The program works like a [telnet](https://cs.wikipedia.org/wiki/Telnet). In udp mode, for the cases when port or ip is unreachable, there is `250ms` delay until timeout.
 
 ### Debugging
 You can enable DEBUG mode, by uncommenting this line in `debug.h`
@@ -52,33 +54,3 @@ In this mode the program will give you detailed information of what it does at *
 
 
 ### Testing
-Client is tested by over 100 auto-generated tests. File `test.sh` is a main file for testing connection, sending reuqests and getting responses from the server.
-
-> **Note** <br/>
-Testing is available only on Unix, since it's native platform for this project.
-
-Usage:
-```sh
-./test.sh -h <host> -p <port> -m <mode>
-```
-
-If some tests are failed you will se following output produced by `diff` command:
-```bash
-< OK:6
----
-> OK:3
-```
-
-Example images are here just to show client program on Linux or Windows being able to communicate to the server TCP/UDP.
-
-**Linux client and TCP server**
-![](./test/linux-test-tcp.PNG)
-**Windows client and UDP server**
-![](./test/windows-test-udp.PNG)
-
-### Useful links
-
-[Simple socket's tutor](https://www.cs.rpi.edu/~moorthy/Courses/os98/Pgms/socket.html)<br/>
-[TCP vs UDP blog](https://www.lifesize.com/blog/tcp-vs-udp/)<br/>
-[Writing portable code](https://www.delphipower.xyz/guide_6/writing_portable_code.html)<br/>
-[Windows. Using event objects](https://learn.microsoft.com/en-us/windows/win32/sync/using-event-objects)
