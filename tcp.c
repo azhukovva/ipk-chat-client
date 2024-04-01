@@ -63,7 +63,7 @@ static void print_error(char *message)
 }
 
 
-void handle_input_command_tcp(char *command, int socket_desc_tcp, char *display_name)
+void handle_input_command_tcp(char *command, int socket_desc_tcp)
 {
     // "/auth", "/join", "/rename", "/help" are not expected to be longer than 7 characters
     // TODO (?)if strlen(command) > 7 exit
@@ -315,11 +315,9 @@ int tcp_connect(char *server_ip, int port)
 
     struct sockaddr_in server;             // Stores the server's address information
     struct epoll_event events[MAX_EVENTS]; // Enent data
-    char display_name[MAX_DNAME];          // Display name of the user
 
     debug("Openning TCP socket");
 
-    int flag = 1;
     // IPv4, TCP default
     socket_desc_tcp = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_desc_tcp == -1)
@@ -423,7 +421,7 @@ int tcp_connect(char *server_ip, int port)
                 // There is a command in the input
                 if (input[0] == '/') // input is a command
                 {
-                    handle_input_command_tcp(input, socket_desc_tcp, display_name);
+                    handle_input_command_tcp(input, socket_desc_tcp);
                 }
                 // message
                 else

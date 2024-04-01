@@ -8,7 +8,9 @@ struct epoll_event event_udp;
 struct sockaddr_in server_addr;
 struct epoll_event events[MAX_EVENTS];
 
+uint16_t recent_message_array[1000] = {0};
 uint16_t message_id = 0;
+int recent_message_id = 0;
 
 enum response_type_t
 {
@@ -27,7 +29,7 @@ bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct
     time_value.tv_sec = 0;
     time_value.tv_usec = timeout * 1000; // Setting the timeout with microsecond precision
 
-    for (int i; i < retransmissions; i++)
+    for (int i = 0; i < retransmissions; i++)
     {
         fd_set read_fds;
         FD_ZERO(&read_fds);
@@ -36,12 +38,12 @@ bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct
         // Function to monitor the file descriptors for readability within the specified timeout period
         int action = select(socket_desc_udp + 1, &read_fds, NULL, NULL, &time_value); // 0 if the timeout expires
 
+
         if (action > 0 && FD_ISSET(socket_desc_udp, &read_fds)) // At least one socket is ready for reading
         {
             char message[MAX_CHAR];
             struct sockaddr_in server_addr;
             socklen_t server_addr_len = sizeof(server_addr);
-
             int received_data = recvfrom(socket_desc_udp, message, sizeof(message) - 1, 0, (struct sockaddr *)&server_addr, &server_addr_len);
             if (received_data < 0)
             {
@@ -123,7 +125,7 @@ int create_auth_message_udp(uint16_t message_id, char *message, char *username, 
     return index;
 }
 
-int create_join_message_udp(uint16_t message_id, char *message, char *channel_id, char *display_name)
+int create_join_message_udp(uint16_t message_id, char *message, char *channel_id)
 {
     char message_id_char[2];
     uint16_to_char_array(message_id, message_id_char);
@@ -153,7 +155,7 @@ int create_confirm_message_udp(uint16_t received_message_id, char *message)
     return index;
 }
 
-int create_msg_message_udp(uint16_t message_id, char *message, char *display_name, char *message_content)
+int create_msg_message_udp(uint16_t message_id, char *message, char *message_content)
 {
     char message_id_char[2];
     uint16_to_char_array(message_id, message_id_char);
@@ -169,13 +171,13 @@ int create_msg_message_udp(uint16_t message_id, char *message, char *display_nam
     return index;
 }
 
-int create_err_message_udp(uint16_t message_id, char *message, char *display_name, char *message_content)
+int create_err_message_udp(uint16_t message_id, char *message, char *message_content)
 {
     char message_id_char[2];
     uint16_to_char_array(message_id, message_id_char);
 
     int index = 0;
-    message[index++] = 0xFE; // Add identifier
+    message[index++] = (char)0xFE; // Add identifier
     memcpy(message + index, message_id_char, 2);
     index += 2;
 
@@ -191,14 +193,14 @@ int create_bye_message_udp(uint16_t message_id, char *message)
     uint16_to_char_array(message_id, message_id_char);
 
     int index = 0;
-    message[index++] = 0xFF; // Add identifier
+    message[index++] = (char)0xFF; // Add identifier
     memcpy(message + index, message_id_char, 2);
     index += 2;
 
     return index;
 }
 
-void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t message_id, char *display_name, int timeout, int retransmissions)
+void handle_input_command_udp(char *command, uint16_t message_id, int timeout, int retransmissions)
 {
     strncpy(CURRENT_STATE, command, 7);
     enum command_type_t cmd_type = get_command_type(command);
@@ -219,7 +221,7 @@ void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t messa
             fprintf(stderr, "ERR: You are already authentified\n");
             return;
         }
-
+        
         sscanf(command, "/auth %s %s %s %99[^\n]", message.username, message.secret, message.display_name, message.additional_params);
 
         if (strlen(message.username) == 0 || strlen(message.secret) == 0 || strlen(message.display_name) == 0 || strlen(message.additional_params) > 0 ||
@@ -232,12 +234,13 @@ void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t messa
         strncpy(DISPLAY_NAME, message.display_name, MAX_DNAME);
         // create an auth message
         int message_size = create_auth_message_udp(message_id++, data, message.username, message.display_name, message.secret);
+
         // send the message
         sendto(socket_desc_udp, data, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
         epoll_ctl(epollfd_udp, EPOLL_CTL_DEL, STDIN_FILENO, &event_udp);
         // wait for confirmation of the previously sent message
         // because of index++ in the create_auth_message_udp function
-        printf("%s\n", data);
+
         if (!is_confirmed(socket_desc_udp, data, message_size, (struct sockaddr *)&server_addr, sizeof(server_addr), message_id - 1, timeout, retransmissions))
         {
             fprintf(stderr, "ERR: Error while waiting for the server's confirmation\n");
@@ -262,7 +265,7 @@ void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t messa
         }
         // create a join message
         // message_id++ ensures that each time a join message is created, it receives a unique ID
-        int message_size = create_join_message_udp(message_id++, data, message.channel_id, message.display_name);
+        int message_size = create_join_message_udp(message_id++, data, message.channel_id);
         // send the message
         sendto(socket_desc_udp, command, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
         epoll_ctl(epollfd_udp, EPOLL_CTL_DEL, STDIN_FILENO, &event_udp);
@@ -304,25 +307,25 @@ void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t messa
     }
 }
 
-bool is_duplicated_message(uint16_t *recent_message_array, int received_message_id, char *responses)
+bool is_duplicated_message(uint16_t *recent_message_array, uint16_t received_message_id, char *responses)
 {
     for (int i = 0; i < 1000; i++)
     {
-
         if (recent_message_array[i] == received_message_id)
         {
-            int message_size = create_confirm_message_udp(message_id, responses);
+            int message_size = create_confirm_message_udp(received_message_id, responses);
             sendto(socket_desc_udp, responses, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-            return true;
+            return received_message_id != 0;
         }
-        return false;
     }
+
+    return false;
 }
 
 static void print_error(char *data, char *message, uint16_t message_id, int timeout, int retransmissions)
 {
     fprintf(stderr, "ERR: %s\n", data);
-    int message_size = create_err_message_udp(message_id++, data, DISPLAY_NAME, message);
+    int message_size = create_err_message_udp(message_id++, data, message);
     sendto(socket_desc_udp, message, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (!is_confirmed(socket_desc_udp, message, message_size, (struct sockaddr *)&server_addr, sizeof(server_addr), message_id, timeout, retransmissions))
     {
@@ -359,11 +362,11 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
     {
         response_type = MSG;
     }
-    else if (response[0] == 0xFE)
+    else if (htons(response[0]) == 0xFE)
     {
         response_type = ERR;
     }
-    else if (response[0] == 0xFF)
+    else if (htons(response[0]) == 0xFF)
     {
         response_type = BYE;
     }
@@ -376,9 +379,6 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
 
     // CURRENT
     uint16_t received_message_id = (uint8_t)response[1] << 8 | (uint8_t)response[2];
-    uint16_t recent_message_array[1000] = {0};
-    int id = 0;
-
     // IS DUPLICATED
     if (is_duplicated_message(recent_message_array, received_message_id, responses))
     {
@@ -386,16 +386,18 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
     }
 
     // IS A NEW MESSAGE
-    recent_message_array[id] = received_message_id;
-    id++;
+    recent_message_array[recent_message_id] = received_message_id;
+    recent_message_id = (recent_message_id + 1) % 1000;
     int message_size = create_confirm_message_udp(received_message_id, responses);
     sendto(socket_desc_udp, responses, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    
     switch (response_type)
     {
     case REPLY:
+
         if ((strncmp(CURRENT_STATE, "/auth", 5) == 0) || (strncmp(CURRENT_STATE, "/join", 5) == 0))
         {
-            event_udp.events = EPOLLIN | EPOLLET;
+            event_udp.events = EPOLLIN;
             event_udp.data.fd = STDIN_FILENO;
             if (epoll_ctl(epollfd_udp, EPOLL_CTL_ADD, STDIN_FILENO, &event_udp) == -1)
             {
@@ -528,7 +530,7 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
     }
 
     // Epoll initialization
-    int epollfd_udp = epoll_create1(0);
+    epollfd_udp = epoll_create1(0);
     if (epollfd_udp < 0)
     {
         fprintf(stderr, "Error: Error while creating epoll\n");
@@ -569,7 +571,6 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
             clean(socket_desc_udp, epollfd_udp);
             return EXIT_FAILURE;
         }
-
         char server_response[MAX_CHAR];
 
         debug("%d event(s) occured", nfds);
@@ -631,11 +632,25 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
 
                 if (input[0] == '/') // input is a command
                 {
-                    handle_input_command_udp(socket_desc_udp, input, message_id, DISPLAY_NAME, timeout, retransmissions);
+                    handle_input_command_udp(input, message_id, timeout, retransmissions);
                 }
 
                 else // input is a message
                 {
+                    // int message_length = create_msg_message_udp(message_id++, input, DISPLAY_NAME, message_content);
+                    // if (sendto(socket_desc_udp, message_content, message_length, 0, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+                    //     fprintf(stderr, "ERR: Cannot send message\n");
+                    //     clean(socket_desc_udp, epollfd_udp);
+                    //     return EXIT_FAILURE;
+                    // }
+                   
+                    // // Wait for confirmation from the server
+                    // if (!is_confirmed(socket_desc_udp, message_content, message_length, (struct sockaddr*)&server_addr, sizeof(server_addr), message_id - 1, timeout, retransmissions)) {
+                    //     fprintf(stderr, "ERR: Did not receive confirmation from server\n");
+                    //     clean(socket_desc_udp, epollfd_udp);
+                    //     return EXIT_FAILURE;
+                    // }
+                    // debug("%s", input);
                     // REVIEW - надо?
                      if (!AUTHENTIFIED)
                      {
@@ -643,14 +658,15 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
                          fprintf(stderr, "ERR: You must be authentified first\n");
                          continue;
                      }
-                     if (!is_valid_parameter(input, true))
-                     {
-                         fprintf(stderr, "ERR: Invalid message content\n");
-                         continue;
-                     }
+                     
+                    if (!is_valid_parameter(input, true))
+                    {
+                        fprintf(stderr, "ERR: Invalid message content\n");
+                        continue;
+                    }
 
                     // create a message
-                    int message_size = create_msg_message_udp(message_id++, input, DISPLAY_NAME, message_content);
+                    int message_size = create_msg_message_udp(message_id++, input, message_content);
 
                     debug("Created message: %s", message_content);
                     int sendto_check = sendto(socket_desc_udp, message_content, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));

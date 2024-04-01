@@ -5,6 +5,9 @@
         "libs.h": "c",
         "stdio.h": "c",
         "stdlib.h": "c",
-        "common.h": "c"
+        "common.h": "c",
+        "in.h": "c",
+        "netdb.h": "c",
+        "strings.h": "c"
     }
 }

@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/un.h>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <getopt.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -15,9 +16,9 @@
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <arpa/inet.h>
-#include <netdb.h>
 #include <sys/time.h>
-#include <netdb.h>
+#include <errno.h>
+#include <strings.h>
 
 #include "debug.h"
 #include "common.h"
