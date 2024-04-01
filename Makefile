@@ -8,4 +8,4 @@ clean:
 	rm ipk24chat-client 
 
 test:
-	python3 tests/ipk-client-test-server/testo.py ./ipk24chat-client -d -p tcp
+	python3 tests/ipk-client-test-server/testo.py ./ipk24chat-client -d -p udp

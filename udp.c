@@ -24,7 +24,6 @@ enum response_type_t
 // Function to wait for a confirmation message from the server after sending a message
 bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct sockaddr *server_addr, socklen_t server_addr_len, uint16_t expected_message_id, int timeout, int retransmissions)
 {
-    // REVIEW - нужно ещё раз объявлять таймаут?
     struct timeval time_value;
     time_value.tv_sec = 0;
     time_value.tv_usec = timeout * 1000; // Setting the timeout with microsecond precision
@@ -51,16 +50,6 @@ bool is_confirmed(int socket_desc_udp, char *message, int message_length, struct
                 clean(socket_desc_udp, epollfd_udp);
                 return false;
             }
-
-            // Check if the received message is the expected one
-            //                                                      MSB                         LSB
-            // to uint8 because of the << operation to prevent sign extension issues
-            // printf("%ld\n", strlen(message));
-            // for (int i = 0; message[i] != '\0'; i++) {
-            //     // Print the hexadecimal representation of each character
-            //     printf("%02X ", message[i]);
-            // }
-            // printf("\n");
 
             if (received_data >= 3 && message[0] == 0x00 && ((uint8_t)message[1] << 8 | (uint8_t)message[2]) == expected_message_id)
             {
@@ -416,7 +405,6 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
         }
         else if (result == 0x01)
         {
-            // REVIEW - response + 5
             fprintf(stderr, "Success: %s\n", response + 6);
             if (strncmp(CURRENT_STATE, "/auth", 5) == 0)
             {
@@ -439,7 +427,7 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
         }
         // {DisplayName}: {MessageContent}\n
         // response + 3 is between dn and mc
-        printf("%s: %s\n", response + 2, response + 3 + strlen(response + 2));
+        printf("%s\n", response + 6);
         break;
     case ERR:
         // ERR: {MessageContent}\n
@@ -477,7 +465,6 @@ static void handle_signal()
 
     int message_size = create_bye_message_udp(message_id++, message);
     sendto(socket_desc_udp, message, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-    // REVIEW - 1000??????
     //   wait for confirmation from the server
     if (!is_confirmed(socket_desc_udp, message, message_size, (struct sockaddr *)&server_addr, sizeof(server_addr), 0, 1000, 3))
     {
@@ -586,8 +573,6 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
                 // There's incoming data to be read from the socket
                 struct sockaddr_in sender_addr;
                 socklen_t sender_addr_len = sizeof(sender_addr);
-
-                // REVIEW - ssize_t?
                 ssize_t recvfrom_check = recvfrom(socket_desc_udp, server_response, MAX_CHAR, 0, (struct sockaddr *)&sender_addr, &sender_addr_len);
                 if (recvfrom_check < 0)
                 {
@@ -595,15 +580,6 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
                     clean(socket_desc_udp, epollfd_udp);
                     return EXIT_FAILURE;
                 }
-
-                debug("Received response: %s", server_response);
-
-                printf("%ld\n", recvfrom_check);
-                for (int i = 0; i < recvfrom_check; i++) {
-                    // Print the hexadecimal representation of each character
-                    printf("%02X ", server_response[i]);
-                }
-                printf("\n");
 
                 // Everything is OK!
                 hadle_server_response_udp(server_response, timeout, retransmissions, message_id);
@@ -637,21 +613,6 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
 
                 else // input is a message
                 {
-                    // int message_length = create_msg_message_udp(message_id++, input, DISPLAY_NAME, message_content);
-                    // if (sendto(socket_desc_udp, message_content, message_length, 0, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-                    //     fprintf(stderr, "ERR: Cannot send message\n");
-                    //     clean(socket_desc_udp, epollfd_udp);
-                    //     return EXIT_FAILURE;
-                    // }
-                   
-                    // // Wait for confirmation from the server
-                    // if (!is_confirmed(socket_desc_udp, message_content, message_length, (struct sockaddr*)&server_addr, sizeof(server_addr), message_id - 1, timeout, retransmissions)) {
-                    //     fprintf(stderr, "ERR: Did not receive confirmation from server\n");
-                    //     clean(socket_desc_udp, epollfd_udp);
-                    //     return EXIT_FAILURE;
-                    // }
-                    // debug("%s", input);
-                    // REVIEW - надо?
                      if (!AUTHENTIFIED)
                      {
                          // should enter the /auth command -> check input again

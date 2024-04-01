@@ -1,13 +1,13 @@
 ## Client for a chat server using IPK24-CHAT protocol
-### Introduction
+### 🎪 Introduction
 The program (client) is designed to connect to any TCP and UDP server. It's written in C programming language and uses [socket API](https://www.geeksforgeeks.org/socket-programming-cc/) to create and manage network connections. The program can be compiled on both Linux and Windows platforms.
 
-### Features
+### 🥵 Features
 - Connects to any TCP or UDP server
 - Sends and recieves data over network
 - Handles primitive errors and exceptions, deals with invalid ports and hosts.
 
-### Compilation
+### 🛠️ Compilation
 This project can be compiled using Makefile:
 ```bash
 make
@@ -19,32 +19,30 @@ make -f .\Makefile
 
 The project is configured to be able to compile on Linux or Windows.
 
-### Usage
+### 🤹 Usage
 
 You can run client using following command:
 ```bash
 ./ipk24 -t <protocol> -s <server> -p <port> -p <port> -d <timeout> -r <retransmissions> -h
 ```
 
-`-t` <br>transport protocol used for connection (tcp or udp)<br/>
-`-s` <br>server IP or hostname<br/>
-`-p` <br>server port<br/>
-`-d` <br>UDP confirmation timeout<br/>
-`-r` <br>maximum number of UDP retransmissions<br/>
-`-h <br>prints program help output and exits prints usage for the user<br/>
+`-t` <br>transport protocol used for connection (tcp or udp)</br>
+`-s` <br>server IP or hostname</br>
+`-p` <br>server port</br>
+`-d` <br>UDP confirmation timeout</br>
+`-r` <br>maximum number of UDP retransmissions</br>
+`-h` <br>prints program help output and exits prints usage for the user</br>
 
-> **Note**<br/>
-All the options described above are **required** in order to connect to the server.
-
-Once the program started, if credentials you provided are valid, you can start typing to a server.
+<br> 🎷 **Note**</br>
+`-t`, `-s` are required flags
 
 
-### Error Handling
+### 🤬 Error Handling
 The client program has handlers to validate internal network errors and input data, provided by a user. If error occurs, the program will throw error message to *STDERR*, cleaning data up.  Error message has format `[ERR]:<err-message>`. 
 
 The program works like a [telnet](https://cs.wikipedia.org/wiki/Telnet). In udp mode, for the cases when port or ip is unreachable, there is `250ms` delay until timeout.
 
-### Debugging
+### 😇 Debugging
 You can enable DEBUG mode, by uncommenting this line in `debug.h`
 ```c
 //#define DEBUG
@@ -53,4 +51,7 @@ You can enable DEBUG mode, by uncommenting this line in `debug.h`
 In this mode the program will give you detailed information of what it does at **each section of the code**. This was done in order to prevent commenting each line of the code due to project task.
 
 
-### Testing
+### 🪺 Testing
+The program was tested using script written in Python by Tomáš Hobza([xhobza03](mailto:xhobza03@vutbr.cz))
+Link to [repository](https://git.fit.vutbr.cz/xhobza03/ipk-client-test-server.git)
+

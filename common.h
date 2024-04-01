@@ -10,7 +10,6 @@
 
 #include "libs.h"
 
-// TODO
 #define MAX_DNAME 20
 #define MAX_ID 20
 #define MAX_SECRET 128
@@ -20,9 +19,9 @@
 #define MAX_CHAR 1500
 #define MAX_EVENTS 1
 
-extern bool AUTHENTIFIED;       // TODO
-extern char DISPLAY_NAME[MAX_DNAME];    // TODO
-extern char CURRENT_STATE[MAX_DNAME];   // TODO
+extern bool AUTHENTIFIED;  
+extern char DISPLAY_NAME[MAX_DNAME];   
+extern char CURRENT_STATE[MAX_DNAME];   
 
 enum command_type_t
 {

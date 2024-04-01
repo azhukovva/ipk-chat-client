@@ -16,7 +16,7 @@ void print_help_main()
 {
 	printf("Usage: ipk24chat-client -t protocol -s server [-p port] [-d timeout] [-r retransmissions] [-h]\n");
 	printf("Options:\n");
-	printf("  -t protocol\t\tSpecify protocol (TCP/UDP)\n");
+	printf("  -t protocol\t\tSpecify protocol (TCP or UDP)\n");
 	printf("  -s server\t\tSpecify server to connect to\n");
 	printf("  -p port\t\tSpecify port to connect to (default 4567)\n");
 	printf("  -d timeout\t\tSet timeout for retransmissions in ms(default 250)\n");
@@ -42,7 +42,6 @@ struct args_t
 	int help;
 };
 
-//REVIEW - 
 struct args_t args = {
 	.port = 4567,
 	.timeout = 250, // *1000
@@ -96,7 +95,6 @@ int main(int argc, char *argv[])
 				return EXIT_FAILURE; // is not value after flag
 			}
 			args.timeout = atoi(argv[i + 1]);
-			// error
 			i++;
 		}
 		else if (strcmp(argv[i], OPT_R) == 0)
@@ -106,12 +104,13 @@ int main(int argc, char *argv[])
 				return EXIT_FAILURE; // is not value after flag
 			}
 			args.retransmissions = atoi(argv[i + 1]);
-			// error
 			i++;
 		}
 		else if (strcmp(argv[i], OPT_H) == 0)
 		{
 			args.help = 1;
+			print_help_main();
+			return EXIT_SUCCESS;
 		}
 		else
 		{

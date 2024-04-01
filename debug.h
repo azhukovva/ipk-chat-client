@@ -13,9 +13,6 @@
 // Debug
 // #define DEBUG
 
-/**
- * TODO
- */
 void debug(const char* message, ...);
 
 #endif

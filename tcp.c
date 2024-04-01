@@ -65,8 +65,6 @@ static void print_error(char *message)
 
 void handle_input_command_tcp(char *command, int socket_desc_tcp)
 {
-    // "/auth", "/join", "/rename", "/help" are not expected to be longer than 7 characters
-    // TODO (?)if strlen(command) > 7 exit
     // command type -> appropriate message
     strncpy(CURRENT_STATE, command, 7); // "/auth", "/join", "/rename", "/help" are not expected to be longer than 7 characters
     enum command_type_t cmd_type = get_command_type(command);
@@ -200,7 +198,6 @@ void hadle_server_response_tcp(char *response)
         {
             print_error("Invalid/Unknown status in REPLY message");
         }
-
         
         strtok(NULL, " "); // IS
         char *message_content = strtok(NULL, "\r\n");
@@ -210,7 +207,6 @@ void hadle_server_response_tcp(char *response)
             print_error("Invalid REPLY message");
         }
 
-        // REVIEW
         if ((strncmp(CURRENT_STATE, "/auth", 5) == 0) || (strncmp(CURRENT_STATE, "/join", 5) == 0))
         {
             event_tcp.events = EPOLLIN;
@@ -441,7 +437,6 @@ int tcp_connect(char *server_ip, int port)
 
                     char *msg_message = create_msg_message_tcp(DISPLAY_NAME, input);
                     debug("Created message: %s", msg_message);
-                    // TODO error handler
                     send(socket_desc_tcp, msg_message, strlen(msg_message), 0);
                 }
             }

@@ -1,8 +1,8 @@
 #include "common.h"
 
-bool AUTHENTIFIED = false;       // TODO
-char DISPLAY_NAME[MAX_DNAME];    // TODO
-char CURRENT_STATE[MAX_DNAME];   // TODO
+bool AUTHENTIFIED = false;  
+char DISPLAY_NAME[MAX_DNAME];  
+char CURRENT_STATE[MAX_DNAME];   
 
 enum command_type_t get_command_type(const char *command)
 {
