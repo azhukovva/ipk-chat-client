@@ -304,9 +304,9 @@ void handle_input_command_udp(int socket_desc_tcp, char *command, uint16_t messa
     }
 }
 
-bool is_duplicated_message(char *recent_message_array, int received_message_id, char *responses)
+bool is_duplicated_message(uint16_t *recent_message_array, int received_message_id, char *responses)
 {
-    for (int i = 0; i < strlen(recent_message_array); i++)
+    for (int i = 0; i < 1000; i++)
     {
 
         if (recent_message_array[i] == received_message_id)
@@ -345,50 +345,38 @@ static void print_error(char *data, char *message, uint16_t message_id, int time
 
 void hadle_server_response_udp(char *response, int timeout, int retransmissions, int message_id)
 {
-
-    char *first_elem = strtok(response, " ");
     enum response_type_t response_type;
-    
 
-    if (first_elem != NULL)
-    {
-        if (strcasecmp(first_elem, "CONFIRM") == 0)
-        {
-            response_type = CONFIRM;
-        }
-        if (strcasecmp(first_elem, "REPLY") == 0)
-        {
-            response_type = REPLY;
-        }
-        else if (strcasecmp(first_elem, "MSG") == 0)
-        {
-            response_type = MSG;
-        }
-        else if (strcasecmp(first_elem, "ERR") == 0)
-        {
-            response_type = ERR;
-        }
-        else if (strncmp(first_elem, "BYE", 3) == 0)
-        {
-            response_type = BYE;
-        }
-        else
-        {
-            response_type = ERR;
-        }
-    }
-
-
-    if (response_type == CONFIRM)
+    if (response[0] == 0x00)
     {
         return;
+    }
+    else if (response[0] == 0x01)
+    {
+        response_type = REPLY;
+    }
+    else if (response[0] == 0x04)
+    {
+        response_type = MSG;
+    }
+    else if (response[0] == 0xFE)
+    {
+        response_type = ERR;
+    }
+    else if (response[0] == 0xFF)
+    {
+        response_type = BYE;
+    }
+    else
+    {
+        response_type = ERR;
     }
 
     char responses[MAX_CHAR];
 
     // CURRENT
     uint16_t received_message_id = (uint8_t)response[1] << 8 | (uint8_t)response[2];
-    char recent_message_array[1000] = {0};
+    uint16_t recent_message_array[1000] = {0};
     int id = 0;
 
     // IS DUPLICATED
@@ -402,15 +390,13 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
     id++;
     int message_size = create_confirm_message_udp(received_message_id, responses);
     sendto(socket_desc_udp, responses, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-
     switch (response_type)
     {
     case REPLY:
         if ((strncmp(CURRENT_STATE, "/auth", 5) == 0) || (strncmp(CURRENT_STATE, "/join", 5) == 0))
         {
-            event_udp.events = EPOLLIN;
+            event_udp.events = EPOLLIN | EPOLLET;
             event_udp.data.fd = STDIN_FILENO;
-
             if (epoll_ctl(epollfd_udp, EPOLL_CTL_ADD, STDIN_FILENO, &event_udp) == -1)
             {
                 fprintf(stderr, "ERR: Error while adding descriptor\n");
@@ -423,14 +409,13 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
         
         if (result == 0x00)
         {
-            fprintf(stderr, "Failure: %s\n", response + 5);
+            fprintf(stderr, "Failure: %s\n", response + 6);
             break;
         }
         else if (result == 0x01)
         {
-
             // REVIEW - response + 5
-            fprintf(stderr, "Success: %s\n", response + 5);
+            fprintf(stderr, "Success: %s\n", response + 6);
             if (strncmp(CURRENT_STATE, "/auth", 5) == 0)
             {
                 debug("User was authorized");
