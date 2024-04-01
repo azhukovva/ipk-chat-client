@@ -456,8 +456,8 @@ void hadle_server_response_udp(char *response, int timeout, int retransmissions,
         break;
     case ERR:
         // ERR: {MessageContent}\n
-        //fprintf(stderr, "ERR: %s\n", response + 3);
-        fprintf(stderr, "ERR FROM %s: %s\n", response + 2, response + 3 + strlen(response + 2));
+        // fprintf(stderr, "ERR: %s\n", response + 3);
+        fprintf(stderr, "Failure: %s\n", response + 6);
         int message_size = create_bye_message_udp(message_id++, response);
         sendto(socket_desc_udp, response, message_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
         if (!is_confirmed(socket_desc_udp, response, message_size, (struct sockaddr *)&server_addr, sizeof(server_addr), message_id - 1, timeout, retransmissions))
@@ -612,12 +612,12 @@ int udp_connect(char *server_ip, int port, int timeout, int retransmissions)
 
                 debug("Received response: %s", server_response);
 
-                // debug("%d\n", recvfrom_check);
-                // for (int i = 0; i != recvfrom_check; i++) {
-                //     // Print the hexadecimal representation of each character
-                //     debug("%02X ", message[i]);
-                // }
-                // debug("\n");
+                printf("%ld\n", recvfrom_check);
+                for (int i = 0; i < recvfrom_check; i++) {
+                    // Print the hexadecimal representation of each character
+                    printf("%02X ", server_response[i]);
+                }
+                printf("\n");
 
                 // Everything is OK!
                 hadle_server_response_udp(server_response, timeout, retransmissions, message_id);
