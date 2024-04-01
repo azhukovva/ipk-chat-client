@@ -48,9 +48,8 @@ bool is_valid_parameter(const char *str, bool allow_spaces);
 
 void init_message(struct message_info_t *message);
 
-/**
- * TODO
- */
+void print_help();
+
 void clean(int socket_desc, int epollfd);
 
 #endif

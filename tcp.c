@@ -50,7 +50,7 @@ char *create_err_message_tcp(char *display_name, char *message_content)
 }
 
 
-void print_error(char *message)
+static void print_error(char *message)
 {
     fprintf(stderr, "ERR: %s\n", message);
     char *error_message = create_err_message_tcp(DISPLAY_NAME, message);
